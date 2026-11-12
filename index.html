@@ -92,6 +92,10 @@
   .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);
     padding:10px 18px;border-radius:999px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90%;text-align:center}
   .toast.show{opacity:1}
+  .warn{border:1.5px dashed var(--accent);font-size:14px;line-height:1.6}
+  .offl{background:var(--soft);border-radius:14px;padding:14px;margin-bottom:10px;font-size:14px;line-height:1.6;color:var(--muted)}
+  .ask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55;display:flex;align-items:flex-end;justify-content:center;padding:16px}
+  .ask .card{width:100%;max-width:480px;margin-bottom:calc(10px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
@@ -114,6 +118,7 @@
       <button class="iconbtn" id="toSet" aria-label="设置">⚙︎</button>
     </div>
     <div class="count" id="count"></div>
+    <div class="card warn" id="spaceWarn" hidden><span id="spaceText"></span><button class="btn" id="spaceGo">去导出并清理</button></div>
     <input class="search" id="q" type="search" placeholder="搜索日记内容或地点">
     <div id="list"></div>
   </section>
@@ -186,6 +191,11 @@
       <input type="file" id="impFile" accept=".zip,application/zip" hidden>
     </div>
     <div class="card">
+      <h2>释放空间</h2>
+      <p class="sub" id="cleanInfo"></p>
+      <button class="btn" id="cleanBtn">清理已导出的视频</button>
+    </div>
+    <div class="card">
       <h2>个性化</h2>
       <input class="field" id="sTitle" maxlength="16" placeholder="首页标题">
     </div>
@@ -208,6 +218,7 @@
 </main>
 
 <button class="fab" id="fab">＋ 写日记</button>
+<div class="ask" id="ask" hidden><div class="card"><h2 id="askT"></h2><p class="sub" id="askB"></p><button class="btn main" id="askYes"></button><button class="btn" id="askNo">以后再说</button></div></div>
 <div class="busy" id="busy" hidden><div id="busyText">处理中…</div></div>
 <div class="toast" id="toast"></div>
 
@@ -327,7 +338,22 @@
       var id=el.getAttribute("data-thumb"); if(!id) return;
       blobURL(id).then(function(u){ if(u) el.style.backgroundImage='url("'+u+'")'; });
     });
+    checkSpace();
   }
+  // 占用空间较大时提醒（视频为主）
+  function checkSpace(){
+    if(!navigator.storage || !navigator.storage.estimate) return;
+    navigator.storage.estimate().then(function(s){
+      var u=s.usage||0, warn = u>2*1073741824 || (s.quota && u>s.quota*0.5);
+      $("spaceWarn").hidden=!warn;
+      if(warn) $("spaceText").textContent="日记已占用 "+fmtSize(u)+"，主要是视频。可以先导出到电脑，再清理手机里已导出的视频，文字和照片都会保留。";
+    }).catch(function(){});
+  }
+  var askCb=null;
+  function ask(t,b,yes,cb){ $("askT").textContent=t; $("askB").textContent=b; $("askYes").textContent=yes; askCb=cb; $("ask").hidden=false; }
+  $("askYes").onclick=function(){ $("ask").hidden=true; if(askCb) askCb(); };
+  $("askNo").onclick=function(){ $("ask").hidden=true; };
+  $("spaceGo").onclick=function(){ show("set"); renderSet(); };
   $("q").addEventListener("input",function(){ renderHome(); });
   $("list").addEventListener("click",function(ev){ var c=ev.target.closest(".entry"); if(c) openDetail(c.getAttribute("data-id")); });
 
@@ -346,7 +372,9 @@
     var box=$("dMedia"); box.innerHTML="";
     var order=(e.media||[]).filter(function(m){return m.type==="audio";}).concat((e.media||[]).filter(function(m){return m.type!=="audio";}));
     for(var i=0;i<order.length;i++){
-      var m=order[i], u=await blobURL(m.id); if(!u) continue;
+      var m=order[i];
+      if(m.offloaded){ var o=document.createElement("div"); o.className="offl"; o.textContent="🎬 这段视频已存到电脑，在导出包的「"+m.offloaded+"」"; box.appendChild(o); continue; }
+      var u=await blobURL(m.id); if(!u) continue;
       var el;
       if(m.type==="photo"){ el=document.createElement("img"); el.src=u; el.loading="lazy"; }
       else if(m.type==="video"){ el=document.createElement("video"); el.src=u; el.controls=true; el.playsInline=true; el.preload="metadata"; }
@@ -372,7 +400,7 @@
     cancelArmed=false; dirty=false; $("eCancel").textContent="取消";
     if(id){
       var e=await getEntry(id);
-      draft={id:e.id, isNew:false, media:(e.media||[]).map(function(m){ return {id:m.id,type:m.type,mime:m.mime,hasThumb:m.hasThumb,saved:true}; }), removed:[], loc:e.loc||null};
+      draft={id:e.id, isNew:false, media:(e.media||[]).map(function(m){ return {id:m.id,type:m.type,mime:m.mime,hasThumb:m.hasThumb,saved:true,exported:m.exported,offloaded:m.offloaded}; }), removed:[], loc:e.loc||null};
       $("eDate").value=localInput(new Date(e.date)); $("eText").value=e.text||""; $("eLoc").value=(e.loc&&e.loc.name)||"";
       $("eTitle").textContent="编辑日记";
     }else{
@@ -386,7 +414,7 @@
     var box=$("eMedia"); box.innerHTML="";
     draft.media.forEach(function(m,i){
       var c=document.createElement("div"); c.className="cell";
-      var lab = m.type==="audio" ? "录音"+(m.dur?" "+m.dur:"") : (m.type==="video"?"视频":"");
+      var lab = m.type==="audio" ? "录音"+(m.dur?" "+m.dur:"") : (m.type==="video"?(m.offloaded?"已存电脑":"视频"):"");
       c.innerHTML=(m.type==="audio"?"🎙️":(m.type==="video"?"🎬":""))+(lab?'<span class="lab">'+lab+'</span>':"")+'<button class="x" data-i="'+i+'" aria-label="移除">×</button>';
       var tid = m.thumbURL ? null : (m.saved ? (m.hasThumb?m.id+"_t":(m.type==="photo"?m.id:null)) : null);
       if(m.thumbURL){ c.style.backgroundImage='url("'+m.thumbURL+'")'; if(m.type!=="audio") c.firstChild && c.firstChild.nodeType===3 && c.removeChild(c.firstChild); }
@@ -489,7 +517,7 @@
     var locName=$("eLoc").value.trim(), loc=null;
     if(locName){ loc = (draft.loc && draft.loc.lat!=null) ? {name:locName,lat:draft.loc.lat,lng:draft.loc.lng} : {name:locName}; }
     var entry={id:draft.id, date:dateISO, text:text, loc:loc,
-      media:draft.media.map(function(m){ return {id:m.id,type:m.type,mime:m.mime,hasThumb:!!(m.saved?m.hasThumb:m.thumb)}; }),
+      media:draft.media.map(function(m){ var o={id:m.id,type:m.type,mime:m.mime,hasThumb:!!(m.saved?m.hasThumb:m.thumb)}; if(m.exported) o.exported=m.exported; if(m.offloaded) o.offloaded=m.offloaded; return o; }),
       updated:new Date().toISOString()};
     busy(true,"正在保存…");
     try{
@@ -594,7 +622,7 @@
       'function r(){var q=document.getElementById("q").value.trim().toLowerCase(),h="",lm="";'+
       'D.entries.filter(function(x){return!q||((x.text||"")+" "+(x.loc&&x.loc.name||"")).toLowerCase().indexOf(q)>=0}).forEach(function(x){'+
       'var d=new Date(x.date),m=d.getFullYear()+"年"+(d.getMonth()+1)+"月";if(m!==lm){lm=m;h+="<h2>"+m+"</h2>"}'+
-      'var ph="",ot="";(x.media||[]).forEach(function(f){if(f.type==="photo")ph+="<img loading=lazy src=\\""+e(f.file)+"\\">";'+
+      'var ph="",ot="";(x.media||[]).forEach(function(f){if(f.offloaded)ot+="<p class=m>🎬 这段视频在之前的导出包中："+e(f.file)+"</p>";else if(f.type==="photo")ph+="<img loading=lazy src=\\""+e(f.file)+"\\">";'+
       'else if(f.type==="video")ot+="<video controls preload=metadata src=\\""+e(f.file)+"\\"></video>";else ot+="<audio controls preload=metadata src=\\""+e(f.file)+"\\"></audio>"});'+
       'var lc=x.loc&&x.loc.name?(x.loc.lat!=null?"<a target=_blank href=\\"https://maps.apple.com/?ll="+x.loc.lat+","+x.loc.lng+"&q="+encodeURIComponent(x.loc.name)+"\\">📍 "+e(x.loc.name)+"</a>":"📍 "+e(x.loc.name)):"";'+
       'h+="<div class=e><div class=d>"+d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 周"+W[d.getDay()]+" "+p(d.getHours())+":"+p(d.getMinutes())+"</div>"+(lc?"<div class=m>"+lc+"</div>":"")+'+
@@ -606,6 +634,36 @@
       '<\/script></body></html>';
   }
 
+  // 导出后记下文件名；视频可以从手机里清理掉，只留封面和文字
+  async function markExported(exp){
+    if(!exp.length) return;
+    var t=DB.transaction("entries","readwrite"), st=t.objectStore("entries"), seen={};
+    exp.forEach(function(x){ x.m.exported=x.fn; seen[x.e.id]=x.e; });
+    Object.keys(seen).forEach(function(k){ st.put(seen[k]); });
+    await done(t);
+    var vids=exp.filter(function(x){ return x.m.type==="video"; });
+    if(!vids.length) return;
+    var size=vids.reduce(function(s,x){ return s+x.size; },0);
+    ask("导出完成 ✅","这次导出包含 "+vids.length+" 段视频，共 "+fmtSize(size)+"。建议先在 Mac 上打开「日记.html」确认视频能播放，再清理手机里的这些视频。清理后文字、照片、录音和视频封面都会保留。也可以以后在「设置 › 释放空间」里清理。","现在清理这些视频",function(){ cleanVideos(vids.map(function(x){ return x.m.id; })); });
+  }
+  async function cleanVideos(ids){
+    var want={}; if(ids) ids.forEach(function(i){ want[i]=1; });
+    var es=await allEntries(), t=DB.transaction(["entries","blobs"],"readwrite"), bs=t.objectStore("blobs"), n=0;
+    es.forEach(function(e){
+      var ch=false;
+      (e.media||[]).forEach(function(m){
+        if(m.type==="video" && m.exported && !m.offloaded && (!ids || want[m.id])){
+          bs.delete(m.id); m.offloaded=m.exported; ch=true; n++;
+          if(urlCache[m.id]){ URL.revokeObjectURL(urlCache[m.id]); delete urlCache[m.id]; }
+        }
+      });
+      if(ch) t.objectStore("entries").put(e);
+    });
+    await done(t);
+    toast(n ? "已清理 "+n+" 段视频" : "没有需要清理的视频");
+    if(view==="set") renderSet();
+    checkSpace();
+  }
   function fillRanges(){
     var ms={};
     entriesCache.forEach(function(e){ var d=new Date(e.date); ms[d.getFullYear()+"-"+pad2(d.getMonth()+1)]=1; });
@@ -622,14 +680,17 @@
     if(!list.length){ toast("这个范围没有日记"); return; }
     busy(true,"正在打包…");
     try{
-      var files=[], out=[];
+      var files=[], out=[], exp=[];
       for(var i=0;i<list.length;i++){
         var e=list[i], d=new Date(e.date), base=d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+"-"+pad2(d.getHours())+pad2(d.getMinutes());
         var media=[];
         for(var j=0;j<(e.media||[]).length;j++){
-          var m=e.media[j], b=await getBlob(m.id); if(!b) continue;
+          var m=e.media[j];
+          if(m.offloaded){ media.push({id:m.id,type:m.type,mime:m.mime,file:m.offloaded,offloaded:true}); continue; }
+          var b=await getBlob(m.id); if(!b) continue;
           var fn="media/"+base+"-"+(j+1)+"."+extOf(m.mime||b.type);
           files.push({name:fn, blob:b}); media.push({id:m.id,type:m.type,mime:m.mime,file:fn});
+          exp.push({e:e,m:m,fn:fn,size:b.size});
         }
         out.push({id:e.id,date:e.date,text:e.text,loc:e.loc,media:media});
       }
@@ -640,13 +701,16 @@
       var now=new Date(), fname="日记导出-"+(range==="all"?"全部":range)+"-"+now.getFullYear()+pad2(now.getMonth()+1)+pad2(now.getDate())+".zip";
       busy(false);
       var file=new File([zip],fname,{type:"application/zip"});
+      var ok=true;
       if(navigator.canShare && navigator.canShare({files:[file]})){
-        try{ await navigator.share({files:[file],title:fname}); }catch(err){}
+        try{ await navigator.share({files:[file],title:fname}); }catch(err){ ok=false; }
       }else{
         var a=document.createElement("a"); a.href=URL.createObjectURL(zip); a.download=fname; document.body.appendChild(a); a.click();
         setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },3000);
       }
+      if(!ok){ toast("已取消导出"); return; }
       toast("已打包 "+list.length+" 篇，"+fmtSize(zip.size));
+      await markExported(exp);
     }catch(err){ busy(false); toast("导出失败，请重试"); }
   };
 
@@ -659,27 +723,41 @@
       if(!jb) throw new Error("zip 里没有找到日记数据");
       var data=JSON.parse(await jb.text());
       if(!data || !Array.isArray(data.entries)) throw new Error("日记数据格式不对");
-      var have={}; (await allEntries()).forEach(function(e){ have[e.id]=1; });
+      var have={}; (await allEntries()).forEach(function(e){ have[e.id]=e; }); var restored=0;
       var added=0;
       for(var i=0;i<data.entries.length;i++){
-        var e=data.entries[i]; if(!e || !e.id || have[e.id] || !e.date) continue;
+        var e=data.entries[i]; if(!e || !e.id || !e.date) continue;
+        if(have[e.id]){
+          // 已有的日记：如果视频之前清理过，而这个 zip 里有，就找回来
+          var ex=have[e.id], chg=false, rt=[];
+          for(var q=0;q<(ex.media||[]).length;q++){
+            var om=ex.media[q]; if(!om.offloaded) continue;
+            var src=(e.media||[]).filter(function(x){ return x.id===om.id && !x.offloaded; })[0]; if(!src) continue;
+            var vb=await z.get(src.file, src.mime); if(!vb) continue;
+            rt.push({id:om.id,blob:new Blob([vb],{type:om.mime||""})}); delete om.offloaded; chg=true; restored++;
+          }
+          if(chg){ var t2=DB.transaction(["entries","blobs"],"readwrite"); rt.forEach(function(p){ t2.objectStore("blobs").put(p); }); t2.objectStore("entries").put(ex); await done(t2); }
+          continue;
+        }
         $("busyText").textContent="正在导入… "+(i+1)+"/"+data.entries.length;
         var media=[], puts=[];
         for(var j=0;j<(e.media||[]).length;j++){
-          var m=e.media[j], b=await z.get(m.file, m.mime); if(!b) continue;
+          var m=e.media[j];
+          if(m.offloaded){ media.push({id:m.id,type:m.type,mime:m.mime,hasThumb:false,exported:m.file,offloaded:m.file}); continue; }
+          var b=await z.get(m.file, m.mime); if(!b) continue;
           b=new Blob([b],{type:m.mime||""});
           var th=null;
           if(m.type==="photo"){ try{ var r=await loadImg(b); th=await drawTo(r.im,r.im.naturalWidth,r.im.naturalHeight,480,0.75); URL.revokeObjectURL(r.url); }catch(x){} }
           else if(m.type==="video"){ th=await videoThumb(b); }
           puts.push({id:m.id,blob:b}); if(th) puts.push({id:m.id+"_t",blob:th});
-          media.push({id:m.id,type:m.type,mime:m.mime,hasThumb:!!th});
+          media.push({id:m.id,type:m.type,mime:m.mime,hasThumb:!!th,exported:m.file});
         }
         var t=DB.transaction(["entries","blobs"],"readwrite");
         puts.forEach(function(p){ t.objectStore("blobs").put(p); });
         t.objectStore("entries").put({id:e.id,date:e.date,text:e.text||"",loc:e.loc||null,media:media,updated:new Date().toISOString()});
         await done(t); added++;
       }
-      busy(false); toast("导入完成，新增 "+added+" 篇");
+      busy(false); toast("导入完成，新增 "+added+" 篇"+(restored?"，找回 "+restored+" 段视频":""));
       await renderHome(); renderSet();
     }catch(err){ busy(false); toast(err && err.message ? err.message : "导入失败"); }
   };
@@ -688,6 +766,16 @@
   async function renderSet(){
     $("sTitle").value=cfg.title||"我的日记";
     fillRanges();
+    var es=await allEntries(), cnt=0, sz=0, left=0;
+    for(var i=0;i<es.length;i++){
+      var md=es[i].media||[];
+      for(var j=0;j<md.length;j++){
+        var m=md[j]; if(m.type!=="video" || m.offloaded) continue;
+        if(m.exported){ cnt++; var b=await getBlob(m.id); if(b) sz+=b.size; } else left++;
+      }
+    }
+    $("cleanInfo").textContent=(cnt?"有 "+cnt+" 段视频已经导出过，共 "+fmtSize(sz)+"，可以清理。":"目前没有可以清理的视频。")+(left?"另有 "+left+" 段视频还没导出过，不会被清理。":"")+"清理后文字、照片、录音和视频封面都会保留，视频保存在电脑上的导出包里。";
+    $("cleanBtn").disabled=!cnt;
     var on=!!cfg.pin;
     $("pinState").textContent = on ? "密码锁已开启。每次打开日记都需要输入密码。" : "开启后，每次打开日记都需要输入密码，防止别人翻看。";
     $("pinSetBox").hidden=on; $("pinOff").hidden=!on;
@@ -696,6 +784,7 @@
     }
   }
   $("toSet").onclick=function(){ show("set"); renderSet(); };
+  $("cleanBtn").onclick=function(){ ask("清理已导出的视频？","请确认导出的 zip 已经存好、在电脑上能正常播放。清理后手机里不再保存这些视频，文字、照片、录音和视频封面会保留。以后把那个 zip 导入回来，视频还能找回。","确认清理",function(){ cleanVideos(null); }); };
   $("sBack").onclick=function(){ show("home"); renderHome(); };
   $("sTitle").addEventListener("input",function(){ cfg.title=this.value.trim(); saveCfg(); });
   async function sha(s){ var b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("riji:"+s)); return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0");}).join(""); }
