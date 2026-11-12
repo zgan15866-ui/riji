@@ -96,6 +96,9 @@
   .offl{background:var(--soft);border-radius:14px;padding:14px;margin-bottom:10px;font-size:14px;line-height:1.6;color:var(--muted)}
   .ask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55;display:flex;align-items:flex-end;justify-content:center;padding:16px}
   .ask .card{width:100%;max-width:480px;margin-bottom:calc(10px + env(safe-area-inset-bottom))}
+  .setup{position:fixed;inset:0;background:var(--bg);z-index:45;display:flex;align-items:center;justify-content:center;padding:20px}
+  .setup .card{width:100%;max-width:420px;padding:22px}
+  .setup .pre{background:var(--soft);border-radius:14px;padding:14px;margin:6px 0 16px;font-size:20px;font-weight:800}
 </style>
 </head>
 <body>
@@ -218,6 +221,16 @@
 </main>
 
 <button class="fab" id="fab">＋ 写日记</button>
+<div class="setup" id="setup" hidden>
+  <div class="card">
+    <h2 style="font-size:20px">欢迎使用 📖</h2>
+    <p class="sub">这本日记属于谁？填好后首页会显示你的名字，以后也可以在「设置」里改。</p>
+    <input class="field" id="suName" maxlength="8" placeholder="你的名字，例如：小干">
+    <div class="pre" id="suPre">我的日记</div>
+    <button class="btn main" id="suGo">开始写日记</button>
+    <p class="sub" style="margin-top:12px">想保密的话，可以到「设置」里开启密码锁。</p>
+  </div>
+</div>
 <div class="ask" id="ask" hidden><div class="card"><h2 id="askT"></h2><p class="sub" id="askB"></p><button class="btn main" id="askYes"></button><button class="btn" id="askNo">以后再说</button></div></div>
 <div class="busy" id="busy" hidden><div id="busyText">处理中…</div></div>
 <div class="toast" id="toast"></div>
@@ -819,10 +832,23 @@
     else if(hiddenAt && Date.now()-hiddenAt>3*60*1000){ lock(); }
   });
 
+  // ---------- 第一次使用：给日记命名 ----------
+  function suTitle(){ var n=$("suName").value.trim(); return n ? n+"的日记" : "我的日记"; }
+  function showSetup(){ $("suPre").textContent=suTitle(); $("setup").hidden=false; }
+  $("suName").addEventListener("input",function(){ $("suPre").textContent=suTitle(); });
+  $("suGo").onclick=function(){
+    var n=$("suName").value.trim();
+    cfg.name=n; cfg.title=suTitle(); cfg.setup=true; saveCfg();
+    $("setup").hidden=true; renderHome(); toast(n ? "欢迎，"+n+" ✨" : "欢迎 ✨");
+  };
+
   // ---------- 启动 ----------
   $("fab").onclick=function(){ openEditor(null); };
   lock();
-  openDB().then(function(d){ DB=d; renderHome(); }).catch(function(){ $("list").innerHTML='<div class="empty">无法打开日记存储，请用 Safari 并从桌面图标打开</div>'; });
+  openDB().then(async function(d){
+    DB=d; await renderHome();
+    if(!cfg.setup){ if(entriesCache.length || cfg.title){ cfg.setup=true; saveCfg(); } else showSetup(); }
+  }).catch(function(){ $("list").innerHTML='<div class="empty">无法打开日记存储，请用 Safari 并从桌面图标打开</div>'; });
   if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(function(){}); }
   if("serviceWorker" in navigator && location.protocol==="https:"){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
 })();
