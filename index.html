@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="日记">
+<meta name="theme-color" content="#f7f3ec">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>日记</title>
+<style>
+  :root{
+    --bg:#f7f3ec; --card:#fffdf9; --ink:#2e2925; --muted:#958b82; --line:#ebe3d8;
+    --accent:#b0603a; --soft:#f3e6dc; --danger:#cf4b3f;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#181512; --card:#221e1a; --ink:#f1ece6; --muted:#a39a90; --line:#36302a; --soft:#33281f; --accent:#e08a5e; }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;font-size:16px}
+  body{padding-top:env(safe-area-inset-top)}
+  main{max-width:640px;margin:0 auto;padding:12px 16px calc(100px + env(safe-area-inset-bottom))}
+  button{font:inherit;color:inherit}
+  [hidden]{display:none!important}
+  .top{display:flex;align-items:center;gap:8px;margin:6px 0 12px}
+  .top h1{flex:1;font-size:26px;margin:0;font-weight:800;letter-spacing:.5px}
+  .iconbtn{border:0;background:var(--card);width:42px;height:42px;border-radius:12px;font-size:19px;display:inline-flex;align-items:center;justify-content:center}
+  .textbtn{border:0;background:none;color:var(--accent);font-size:16px;font-weight:600;padding:8px 4px}
+  .count{color:var(--muted);font-size:14px;margin:-6px 2px 12px}
+  .search{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:16px;margin-bottom:12px}
+  .month{font-size:14px;color:var(--muted);font-weight:600;margin:18px 4px 8px}
+  .entry{display:flex;gap:12px;background:var(--card);border-radius:16px;padding:14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(60,40,20,.05)}
+  .entry .day{width:44px;text-align:center;flex:none}
+  .entry .day b{display:block;font-size:26px;line-height:1.1}
+  .entry .day span{font-size:12px;color:var(--muted)}
+  .entry .body{flex:1;min-width:0}
+  .entry .meta{font-size:13px;color:var(--muted);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .entry .txt{font-size:15px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+  .strip{display:flex;gap:6px;margin-top:8px}
+  .thumb{width:62px;height:62px;border-radius:10px;background:var(--soft) center/cover no-repeat;position:relative;flex:none;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)}
+  .thumb .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+  .thumb .more{position:absolute;inset:0;border-radius:10px;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600}
+  .chip{display:inline-flex;align-items:center;gap:4px;background:var(--soft);border-radius:999px;padding:4px 10px;font-size:13px;margin:8px 6px 0 0}
+  .empty{text-align:center;color:var(--muted);padding:60px 20px;line-height:1.8}
+  .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));border:0;background:var(--accent);color:#fff;font-size:17px;font-weight:700;padding:15px 30px;border-radius:999px;box-shadow:0 6px 18px rgba(176,96,58,.35)}
+  /* 编辑 */
+  .card{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px}
+  .dt{border:0;background:none;color:var(--ink);font-size:16px;font-weight:600;padding:4px 0;width:100%}
+  textarea{width:100%;min-height:220px;border:0;outline:0;background:none;color:var(--ink);font-size:17px;line-height:1.65;resize:none;font-family:inherit;padding:0}
+  .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .tools button{border:0;background:var(--card);border-radius:14px;padding:12px 0 10px;font-size:13px;color:var(--ink)}
+  .tools button i{display:block;font-style:normal;font-size:24px;margin-bottom:4px}
+  .tools button.rec{background:var(--danger);color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .grid .cell{position:relative;aspect-ratio:1/1;border-radius:12px;background:var(--soft) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)}
+  .grid .cell .x{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;line-height:26px;padding:0}
+  .grid .cell .lab{position:absolute;left:6px;bottom:5px;font-size:12px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+  .locrow{display:flex;align-items:center;gap:8px}
+  .locrow input{flex:1;min-width:0;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font-size:15px;padding:6px 0;outline:0}
+  .recbar{display:flex;align-items:center;gap:10px;font-size:16px}
+  .recbar .dot{width:12px;height:12px;border-radius:50%;background:var(--danger);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .busy{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:50}
+  .busy div{background:var(--card);padding:18px 24px;border-radius:14px;font-size:15px}
+  /* 详情 */
+  .dhead{font-size:20px;font-weight:700;margin:4px 2px}
+  .dsub{color:var(--muted);font-size:14px;margin:4px 2px 14px}
+  .dsub a{color:var(--accent);text-decoration:none}
+  .dtext{font-size:17px;line-height:1.75;white-space:pre-wrap;word-break:break-word;margin:0 2px 16px}
+  .media img,.media video{width:100%;border-radius:14px;margin-bottom:10px;display:block;background:#000}
+  .media img{background:none}
+  .media audio{width:100%;margin-bottom:10px}
+  .danger{color:var(--danger)!important}
+  /* 设置 */
+  h2{font-size:16px;margin:0 0 10px}
+  .sub{font-size:13px;color:var(--muted);line-height:1.6}
+  .field{width:100%;border:1px solid var(--line);background:none;color:var(--ink);border-radius:10px;padding:10px;font-size:16px;margin-bottom:10px}
+  .btn{width:100%;border:1px solid var(--line);background:none;color:var(--ink);padding:12px;border-radius:12px;font-size:15px;margin-top:8px}
+  .btn.main{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  select.field{appearance:none;-webkit-appearance:none}
+  /* 锁 */
+  #v-lock{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+  .dots{display:flex;gap:14px;margin:18px 0 26px}
+  .dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent)}
+  .dots i.on{background:var(--accent)}
+  .pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px}
+  .pad button{height:72px;border-radius:50%;border:0;background:var(--card);font-size:26px}
+  .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);
+    padding:10px 18px;border-radius:999px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:90%;text-align:center}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- 密码锁 -->
+<section id="v-lock" hidden>
+  <div style="font-size:40px">🔒</div>
+  <div style="font-size:18px;font-weight:700;margin-top:10px">输入密码</div>
+  <div class="dots" id="dots"></div>
+  <div class="pad" id="pad"></div>
+  <button class="textbtn" id="forgot" style="margin-top:18px">忘记密码</button>
+  <div class="sub" id="hintShow" style="margin-top:6px"></div>
+</section>
+
+<main>
+  <!-- 首页 -->
+  <section id="v-home">
+    <div class="top">
+      <h1 id="appTitle">我的日记</h1>
+      <button class="iconbtn" id="toSet" aria-label="设置">⚙︎</button>
+    </div>
+    <div class="count" id="count"></div>
+    <input class="search" id="q" type="search" placeholder="搜索日记内容或地点">
+    <div id="list"></div>
+  </section>
+
+  <!-- 写/编辑 -->
+  <section id="v-edit" hidden>
+    <div class="top">
+      <button class="textbtn" id="eCancel">取消</button>
+      <h1 style="font-size:18px;text-align:center" id="eTitle">写日记</h1>
+      <button class="textbtn" id="eSave">保存</button>
+    </div>
+    <div class="card">
+      <input class="dt" id="eDate" type="datetime-local">
+      <div class="locrow" style="margin-top:6px">
+        <span>📍</span>
+        <input id="eLoc" placeholder="地点（可不填）" maxlength="60">
+        <button class="textbtn" id="eLocBtn" style="font-size:14px">定位</button>
+      </div>
+    </div>
+    <div class="card">
+      <textarea id="eText" placeholder="今天发生了什么……"></textarea>
+    </div>
+    <div class="tools">
+      <button id="tPhoto"><i>🖼️</i>照片</button>
+      <button id="tVideo"><i>🎬</i>视频</button>
+      <button id="tRec"><i>🎙️</i>录音</button>
+      <button id="tCam"><i>📷</i>拍照</button>
+    </div>
+    <div class="card" id="recCard" hidden>
+      <div class="recbar"><span class="dot"></span><span>正在录音</span><b id="recTime">0:00</b>
+        <span style="flex:1"></span><button class="textbtn" id="recStop">完成</button></div>
+    </div>
+    <div class="grid" id="eMedia"></div>
+    <input type="file" id="fPhoto" accept="image/*" multiple hidden>
+    <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
+    <input type="file" id="fVideo" accept="video/*" hidden>
+  </section>
+
+  <!-- 查看 -->
+  <section id="v-detail" hidden>
+    <div class="top">
+      <button class="textbtn" id="dBack">‹ 返回</button>
+      <span style="flex:1"></span>
+      <button class="textbtn" id="dEdit">编辑</button>
+      <button class="textbtn danger" id="dDel">删除</button>
+    </div>
+    <div class="dhead" id="dDate"></div>
+    <div class="dsub" id="dLoc"></div>
+    <div class="dtext" id="dText"></div>
+    <div class="media" id="dMedia"></div>
+  </section>
+
+  <!-- 设置 -->
+  <section id="v-set" hidden>
+    <div class="top">
+      <button class="textbtn" id="sBack">‹ 返回</button>
+      <h1 style="font-size:18px;text-align:center">设置与导出</h1>
+      <span style="width:60px"></span>
+    </div>
+    <div class="card">
+      <h2>导出到电脑</h2>
+      <p class="sub">导出为一个 zip 文件，可以 AirDrop 到 Mac 或存到「文件」。在 Mac 上双击解压，用 Safari 打开里面的「日记.html」即可浏览全部内容（含照片、视频、录音）。这个 zip 也可以导回手机，用于备份和换手机。</p>
+      <select class="field" id="expRange"></select>
+      <button class="btn main" id="expBtn">导出</button>
+    </div>
+    <div class="card">
+      <h2>从备份导入</h2>
+      <p class="sub">选择之前导出的 zip 文件。已有的日记不会重复导入。请使用原始 zip，不要在电脑上解压后重新压缩。</p>
+      <button class="btn" id="impBtn">选择 zip 文件</button>
+      <input type="file" id="impFile" accept=".zip,application/zip" hidden>
+    </div>
+    <div class="card">
+      <h2>个性化</h2>
+      <input class="field" id="sTitle" maxlength="16" placeholder="首页标题">
+    </div>
+    <div class="card">
+      <h2>密码锁</h2>
+      <p class="sub" id="pinState"></p>
+      <div id="pinSetBox">
+        <input class="field" id="pin1" inputmode="numeric" maxlength="6" placeholder="设置 4–6 位数字密码" type="password">
+        <input class="field" id="pinHint" maxlength="30" placeholder="密码提示（忘记时显示，可不填）">
+        <button class="btn" id="pinSave">开启密码锁</button>
+      </div>
+      <button class="btn danger" id="pinOff" hidden>关闭密码锁</button>
+    </div>
+    <div class="card">
+      <h2>存储</h2>
+      <p class="sub" id="usage"></p>
+      <p class="sub">日记只保存在这台手机上。请从桌面图标打开使用，并定期导出到电脑备份。</p>
+    </div>
+  </section>
+</main>
+
+<button class="fab" id="fab">＋ 写日记</button>
+<div class="busy" id="busy" hidden><div id="busyText">处理中…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var CFG_KEY = "riji.cfg";
+  var DB = null;
+  var cfg = {};
+  try{ cfg = JSON.parse(localStorage.getItem(CFG_KEY) || "{}") || {}; }catch(e){ cfg = {}; }
+  function saveCfg(){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){} }
+
+  // ---------- 工具 ----------
+  function $(id){ return document.getElementById(id); }
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  var WK = "日一二三四五六";
+  function fmtFull(iso){ var d=new Date(iso); return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 周"+WK[d.getDay()]+" "+pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+  function localInput(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+"T"+pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+  function fmtSize(b){ return b>1073741824?(b/1073741824).toFixed(1)+" GB":b>1048576?(b/1048576).toFixed(1)+" MB":Math.ceil(b/1024)+" KB"; }
+  var toastTimer;
+  function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove("show");},2200); }
+  function busy(on,text){ $("busy").hidden=!on; if(text) $("busyText").textContent=text; }
+
+  // ---------- 数据库 ----------
+  function openDB(){
+    return new Promise(function(res,rej){
+      var r=indexedDB.open("riji",1);
+      r.onupgradeneeded=function(){ var d=r.result; d.createObjectStore("entries",{keyPath:"id"}); d.createObjectStore("blobs",{keyPath:"id"}); };
+      r.onsuccess=function(){ res(r.result); }; r.onerror=function(){ rej(r.error); };
+    });
+  }
+  function rq(r){ return new Promise(function(res,rej){ r.onsuccess=function(){res(r.result);}; r.onerror=function(){rej(r.error);}; }); }
+  function done(t){ return new Promise(function(res,rej){ t.oncomplete=function(){res();}; t.onerror=t.onabort=function(){rej(t.error||new Error("tx"));}; }); }
+  function allEntries(){ return rq(DB.transaction("entries").objectStore("entries").getAll()); }
+  function getEntry(id){ return rq(DB.transaction("entries").objectStore("entries").get(id)); }
+  function getBlob(id){ return rq(DB.transaction("blobs").objectStore("blobs").get(id)).then(function(r){ return r?r.blob:null; }); }
+  var urlCache={};
+  function blobURL(id){
+    if(urlCache[id]) return Promise.resolve(urlCache[id]);
+    return getBlob(id).then(function(b){ if(!b) return ""; urlCache[id]=URL.createObjectURL(b); return urlCache[id]; });
+  }
+
+  // ---------- 媒体处理 ----------
+  function loadImg(blob){
+    return new Promise(function(res,rej){ var u=URL.createObjectURL(blob), im=new Image();
+      im.onload=function(){ res({im:im,url:u}); }; im.onerror=function(){ URL.revokeObjectURL(u); rej(new Error("img")); }; im.src=u; });
+  }
+  function drawTo(src,w,h,max,q){
+    var s=Math.min(1,max/Math.max(w,h)), c=document.createElement("canvas");
+    c.width=Math.round(w*s); c.height=Math.round(h*s);
+    c.getContext("2d").drawImage(src,0,0,c.width,c.height);
+    return new Promise(function(res){ c.toBlob(function(b){ res(b); },"image/jpeg",q); });
+  }
+  async function processPhoto(file){
+    try{
+      var r=await loadImg(file), w=r.im.naturalWidth, h=r.im.naturalHeight;
+      var big = Math.max(w,h)>2560 || file.size>2500000 ? await drawTo(r.im,w,h,2560,0.86) : file;
+      var th = await drawTo(r.im,w,h,480,0.75);
+      URL.revokeObjectURL(r.url);
+      return {blob:big||file, mime:(big&&big!==file)?"image/jpeg":(file.type||"image/jpeg"), thumb:th};
+    }catch(e){ return {blob:file, mime:file.type||"image/jpeg", thumb:null}; }
+  }
+  function videoThumb(blob){
+    return new Promise(function(res){
+      var v=document.createElement("video"), u=URL.createObjectURL(blob), fin=false;
+      function end(b){ if(fin) return; fin=true; URL.revokeObjectURL(u); res(b||null); }
+      v.muted=true; v.playsInline=true; v.preload="auto";
+      v.onloadeddata=function(){ try{ v.currentTime=Math.min(0.5,(v.duration||1)/2); }catch(e){ end(null); } };
+      v.onseeked=function(){ try{ drawTo(v,v.videoWidth,v.videoHeight,480,0.75).then(end); }catch(e){ end(null); } };
+      v.onerror=function(){ end(null); };
+      setTimeout(function(){ end(null); },6000);
+      v.src=u;
+    });
+  }
+
+  // ---------- 视图切换 ----------
+  var view="home";
+  function show(v){
+    view=v;
+    ["home","edit","detail","set"].forEach(function(x){ $("v-"+x).hidden = x!==v; });
+    $("fab").hidden = v!=="home";
+    window.scrollTo(0,0);
+  }
+
+  // ---------- 首页 ----------
+  var entriesCache=[];
+  async function renderHome(){
+    $("appTitle").textContent = cfg.title || "我的日记";
+    entriesCache = (await allEntries()).sort(function(a,b){ return a.date<b.date?1:-1; });
+    var q=$("q").value.trim().toLowerCase();
+    var list = q ? entriesCache.filter(function(e){ return ((e.text||"")+" "+((e.loc&&e.loc.name)||"")).toLowerCase().indexOf(q)>=0; }) : entriesCache;
+    $("count").textContent = entriesCache.length ? "已记录 "+entriesCache.length+" 篇" : "";
+    if(!entriesCache.length){ $("list").innerHTML='<div class="empty">还没有日记<br>点下面的「写日记」开始第一篇吧 ✍️</div>'; return; }
+    if(!list.length){ $("list").innerHTML='<div class="empty">没有找到相关日记</div>'; return; }
+    var html="", lastM="";
+    list.forEach(function(e){
+      var d=new Date(e.date), m=d.getFullYear()+"年"+(d.getMonth()+1)+"月";
+      if(m!==lastM){ lastM=m; html+='<div class="month">'+m+'</div>'; }
+      var vis=(e.media||[]).filter(function(x){return x.type!=="audio";});
+      var aud=(e.media||[]).filter(function(x){return x.type==="audio";}).length;
+      var strip="";
+      vis.slice(0,4).forEach(function(x,i){
+        strip+='<div class="thumb" data-thumb="'+(x.hasThumb?x.id+"_t":(x.type==="photo"?x.id:""))+'">'+(x.type==="video"?'<span class="play">▶</span>':"")+
+          ((i===3&&vis.length>4)?'<span class="more">+'+(vis.length-4)+'</span>':"")+(!x.hasThumb&&x.type==="video"?"🎬":"")+'</div>';
+      });
+      html+='<div class="entry" data-id="'+e.id+'"><div class="day"><b>'+d.getDate()+'</b><span>周'+WK[d.getDay()]+'</span></div><div class="body">'+
+        '<div class="meta">'+pad2(d.getHours())+':'+pad2(d.getMinutes())+(e.loc&&e.loc.name?' · 📍 '+esc(e.loc.name):'')+'</div>'+
+        (e.text?'<div class="txt">'+esc(e.text)+'</div>':'')+
+        (strip?'<div class="strip">'+strip+'</div>':'')+
+        (aud?'<span class="chip">🎙️ 录音 ×'+aud+'</span>':'')+
+        '</div></div>';
+    });
+    $("list").innerHTML=html;
+    [].forEach.call(document.querySelectorAll("[data-thumb]"),function(el){
+      var id=el.getAttribute("data-thumb"); if(!id) return;
+      blobURL(id).then(function(u){ if(u) el.style.backgroundImage='url("'+u+'")'; });
+    });
+  }
+  $("q").addEventListener("input",function(){ renderHome(); });
+  $("list").addEventListener("click",function(ev){ var c=ev.target.closest(".entry"); if(c) openDetail(c.getAttribute("data-id")); });
+
+  // ---------- 查看 ----------
+  var curId=null, delArmed=false;
+  async function openDetail(id){
+    var e=await getEntry(id); if(!e) return;
+    curId=id; delArmed=false; $("dDel").textContent="删除";
+    $("dDate").textContent=fmtFull(e.date);
+    var loc="";
+    if(e.loc && e.loc.name){
+      loc = e.loc.lat!=null ? '<a href="https://maps.apple.com/?ll='+e.loc.lat+','+e.loc.lng+'&q='+encodeURIComponent(e.loc.name)+'">📍 '+esc(e.loc.name)+'</a>' : '📍 '+esc(e.loc.name);
+    }
+    $("dLoc").innerHTML=loc; $("dLoc").hidden=!loc;
+    $("dText").textContent=e.text||"";
+    var box=$("dMedia"); box.innerHTML="";
+    var order=(e.media||[]).filter(function(m){return m.type==="audio";}).concat((e.media||[]).filter(function(m){return m.type!=="audio";}));
+    for(var i=0;i<order.length;i++){
+      var m=order[i], u=await blobURL(m.id); if(!u) continue;
+      var el;
+      if(m.type==="photo"){ el=document.createElement("img"); el.src=u; el.loading="lazy"; }
+      else if(m.type==="video"){ el=document.createElement("video"); el.src=u; el.controls=true; el.playsInline=true; el.preload="metadata"; }
+      else { el=document.createElement("audio"); el.src=u; el.controls=true; el.preload="metadata"; }
+      box.appendChild(el);
+    }
+    show("detail");
+  }
+  $("dBack").onclick=function(){ show("home"); renderHome(); };
+  $("dEdit").onclick=function(){ openEditor(curId); };
+  $("dDel").onclick=async function(){
+    if(!delArmed){ delArmed=true; this.textContent="确认删除？"; return; }
+    var e=await getEntry(curId);
+    var t=DB.transaction(["entries","blobs"],"readwrite");
+    (e.media||[]).forEach(function(m){ t.objectStore("blobs").delete(m.id); t.objectStore("blobs").delete(m.id+"_t"); });
+    t.objectStore("entries").delete(curId);
+    await done(t); toast("已删除"); show("home"); renderHome();
+  };
+
+  // ---------- 写日记 ----------
+  var draft=null, dirty=false, cancelArmed=false;
+  async function openEditor(id){
+    cancelArmed=false; dirty=false; $("eCancel").textContent="取消";
+    if(id){
+      var e=await getEntry(id);
+      draft={id:e.id, isNew:false, media:(e.media||[]).map(function(m){ return {id:m.id,type:m.type,mime:m.mime,hasThumb:m.hasThumb,saved:true}; }), removed:[], loc:e.loc||null};
+      $("eDate").value=localInput(new Date(e.date)); $("eText").value=e.text||""; $("eLoc").value=(e.loc&&e.loc.name)||"";
+      $("eTitle").textContent="编辑日记";
+    }else{
+      draft={id:uid(), isNew:true, media:[], removed:[], loc:null};
+      $("eDate").value=localInput(new Date()); $("eText").value=""; $("eLoc").value="";
+      $("eTitle").textContent="写日记";
+    }
+    renderEditMedia(); show("edit");
+  }
+  function renderEditMedia(){
+    var box=$("eMedia"); box.innerHTML="";
+    draft.media.forEach(function(m,i){
+      var c=document.createElement("div"); c.className="cell";
+      var lab = m.type==="audio" ? "录音"+(m.dur?" "+m.dur:"") : (m.type==="video"?"视频":"");
+      c.innerHTML=(m.type==="audio"?"🎙️":(m.type==="video"?"🎬":""))+(lab?'<span class="lab">'+lab+'</span>':"")+'<button class="x" data-i="'+i+'" aria-label="移除">×</button>';
+      var tid = m.thumbURL ? null : (m.saved ? (m.hasThumb?m.id+"_t":(m.type==="photo"?m.id:null)) : null);
+      if(m.thumbURL){ c.style.backgroundImage='url("'+m.thumbURL+'")'; if(m.type!=="audio") c.firstChild && c.firstChild.nodeType===3 && c.removeChild(c.firstChild); }
+      else if(tid){ blobURL(tid).then(function(u){ if(u){ c.style.backgroundImage='url("'+u+'")'; if(c.firstChild&&c.firstChild.nodeType===3) c.removeChild(c.firstChild); } }); }
+      box.appendChild(c);
+    });
+  }
+  $("eMedia").addEventListener("click",function(ev){
+    var b=ev.target.closest(".x"); if(!b) return;
+    var m=draft.media.splice(+b.getAttribute("data-i"),1)[0];
+    if(m.saved) draft.removed.push(m.id);
+    dirty=true; renderEditMedia();
+  });
+  ["eText","eLoc","eDate"].forEach(function(id){ $(id).addEventListener("input",function(){ dirty=true; }); });
+  $("eLoc").addEventListener("input",function(){ if(draft.loc) draft.loc={name:this.value.trim(),lat:draft.loc.lat,lng:draft.loc.lng}; });
+
+  $("tPhoto").onclick=function(){ $("fPhoto").click(); };
+  $("tCam").onclick=function(){ $("fCam").click(); };
+  $("tVideo").onclick=function(){ $("fVideo").click(); };
+  async function addPhotos(files){
+    if(!files.length) return;
+    busy(true,"正在处理照片…");
+    for(var i=0;i<files.length;i++){
+      var p=await processPhoto(files[i]);
+      draft.media.push({id:uid(),type:"photo",mime:p.mime,blob:p.blob,thumb:p.thumb,thumbURL:URL.createObjectURL(p.thumb||p.blob)});
+    }
+    busy(false); dirty=true; renderEditMedia();
+  }
+  $("fPhoto").onchange=function(){ var f=[].slice.call(this.files); this.value=""; addPhotos(f); };
+  $("fCam").onchange=function(){ var f=[].slice.call(this.files); this.value=""; addPhotos(f); };
+  $("fVideo").onchange=async function(){
+    var f=this.files[0]; this.value=""; if(!f) return;
+    if(f.size>150*1048576) toast("这个视频有 "+fmtSize(f.size)+"，会占用较多空间");
+    busy(true,"正在读取视频…");
+    var th=await videoThumb(f);
+    draft.media.push({id:uid(),type:"video",mime:f.type||"video/mp4",blob:f,thumb:th,thumbURL:th?URL.createObjectURL(th):null});
+    busy(false); dirty=true; renderEditMedia();
+  };
+
+  // 录音
+  var rec=null, recChunks=[], recStart=0, recTimer=null, recStream=null;
+  $("tRec").onclick=async function(){
+    if(rec){ stopRec(); return; }
+    if(!navigator.mediaDevices || !window.MediaRecorder){ toast("此设备不支持录音"); return; }
+    try{ recStream=await navigator.mediaDevices.getUserMedia({audio:true}); }
+    catch(e){ toast("无法使用麦克风，请在设置中允许"); return; }
+    var mt = MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "");
+    rec = mt ? new MediaRecorder(recStream,{mimeType:mt}) : new MediaRecorder(recStream);
+    recChunks=[];
+    rec.ondataavailable=function(e){ if(e.data && e.data.size) recChunks.push(e.data); };
+    rec.onstop=function(){
+      var type=(rec && rec.mimeType) || mt || "audio/mp4";
+      var secs=Math.round((Date.now()-recStart)/1000);
+      var b=new Blob(recChunks,{type:type});
+      if(b.size) { draft.media.push({id:uid(),type:"audio",mime:type.split(";")[0],blob:b,dur:Math.floor(secs/60)+":"+pad2(secs%60)}); dirty=true; }
+      recStream.getTracks().forEach(function(t){t.stop();});
+      rec=null; renderEditMedia();
+    };
+    rec.start(1000); recStart=Date.now();
+    $("recCard").hidden=false; $("tRec").classList.add("rec"); $("tRec").innerHTML="<i>⏹</i>停止";
+    recTimer=setInterval(function(){ var s=Math.round((Date.now()-recStart)/1000); $("recTime").textContent=Math.floor(s/60)+":"+pad2(s%60); },500);
+  };
+  function stopRec(){
+    if(!rec) return;
+    clearInterval(recTimer); $("recCard").hidden=true; $("recTime").textContent="0:00";
+    $("tRec").classList.remove("rec"); $("tRec").innerHTML="<i>🎙️</i>录音";
+    try{ rec.stop(); }catch(e){ rec=null; }
+  }
+  $("recStop").onclick=stopRec;
+
+  // 定位
+  $("eLocBtn").onclick=function(){
+    if(!navigator.geolocation){ toast("此设备不支持定位"); return; }
+    var btn=this; btn.textContent="定位中…";
+    navigator.geolocation.getCurrentPosition(async function(p){
+      var lat=+p.coords.latitude.toFixed(6), lng=+p.coords.longitude.toFixed(6), name=lat.toFixed(4)+", "+lng.toFixed(4);
+      try{
+        var r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=zh-CN&lat="+lat+"&lon="+lng);
+        var j=await r.json(), a=j.address||{}, parts=[];
+        [a.city||a.town||a.village||a.county||a.state, a.suburb||a.city_district||a.district||a.neighbourhood, a.road, j.name].forEach(function(x){ if(x && parts.indexOf(x)<0) parts.push(x); });
+        if(parts.length) name=parts.join(" · ");
+      }catch(e){}
+      draft.loc={name:name,lat:lat,lng:lng}; $("eLoc").value=name; dirty=true; btn.textContent="定位";
+    },function(err){
+      btn.textContent="定位";
+      toast(err && err.code===1 ? "没有定位权限，请在设置里允许" : "定位失败，可以手动填写地点");
+    },{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+  };
+
+  $("eCancel").onclick=function(){
+    if(rec) stopRec();
+    if(dirty && !cancelArmed){ cancelArmed=true; this.textContent="放弃修改？"; return; }
+    draft=null; if(curId && view==="edit" && $("eTitle").textContent==="编辑日记") openDetail(curId); else { show("home"); renderHome(); }
+  };
+  $("eSave").onclick=async function(){
+    if(rec){ toast("请先停止录音"); return; }
+    var text=$("eText").value.replace(/\s+$/,"");
+    if(!text && !draft.media.length){ toast("写点什么，或加张照片吧"); return; }
+    var dv=$("eDate").value, dateISO=(dv?new Date(dv):new Date()).toISOString();
+    var locName=$("eLoc").value.trim(), loc=null;
+    if(locName){ loc = (draft.loc && draft.loc.lat!=null) ? {name:locName,lat:draft.loc.lat,lng:draft.loc.lng} : {name:locName}; }
+    var entry={id:draft.id, date:dateISO, text:text, loc:loc,
+      media:draft.media.map(function(m){ return {id:m.id,type:m.type,mime:m.mime,hasThumb:!!(m.saved?m.hasThumb:m.thumb)}; }),
+      updated:new Date().toISOString()};
+    busy(true,"正在保存…");
+    try{
+      var t=DB.transaction(["entries","blobs"],"readwrite"), bs=t.objectStore("blobs");
+      draft.media.forEach(function(m){
+        if(m.saved) return;
+        bs.put({id:m.id, blob:m.blob});
+        if(m.thumb) bs.put({id:m.id+"_t", blob:m.thumb});
+      });
+      draft.removed.forEach(function(id){ bs.delete(id); bs.delete(id+"_t"); });
+      t.objectStore("entries").put(entry);
+      await done(t);
+      busy(false); toast("已保存 ✨"); dirty=false;
+      openDetail(entry.id);
+    }catch(e){
+      busy(false); toast("保存失败："+(e&&e.name==="QuotaExceededError"?"手机存储空间不够了":"请重试"));
+    }
+  };
+
+  // ---------- ZIP（导出/导入，不压缩，方便 Mac 直接解压） ----------
+  var CRC=(function(){ var t=new Uint32Array(256); for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+  async function crc32(blob){
+    var c=0xFFFFFFFF, step=4*1048576;
+    for(var off=0; off<blob.size; off+=step){
+      var a=new Uint8Array(await blob.slice(off,off+step).arrayBuffer());
+      for(var i=0;i<a.length;i++) c = CRC[(c^a[i])&255]^(c>>>8);
+    }
+    return (c^0xFFFFFFFF)>>>0;
+  }
+  async function makeZip(files, progress){
+    var enc=new TextEncoder(), parts=[], central=[], offset=0, now=new Date();
+    var dtime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
+    var ddate=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+    for(var i=0;i<files.length;i++){
+      if(progress) progress(i,files.length);
+      var f=files[i], name=enc.encode(f.name), blob=f.blob, crc=await crc32(blob), size=blob.size;
+      var h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+      h.setUint16(10,dtime,true); h.setUint16(12,ddate,true); h.setUint32(14,crc,true); h.setUint32(18,size,true); h.setUint32(22,size,true);
+      h.setUint16(26,name.length,true); h.setUint16(28,0,true);
+      parts.push(h.buffer, name, blob);
+      var c=new DataView(new ArrayBuffer(46));
+      c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint16(10,0,true);
+      c.setUint16(12,dtime,true); c.setUint16(14,ddate,true); c.setUint32(16,crc,true); c.setUint32(20,size,true); c.setUint32(24,size,true);
+      c.setUint16(28,name.length,true); c.setUint16(30,0,true); c.setUint16(32,0,true); c.setUint16(34,0,true); c.setUint16(36,0,true);
+      c.setUint32(38,0,true); c.setUint32(42,offset,true);
+      central.push(c.buffer, name);
+      offset += 30+name.length+size;
+    }
+    var cdSize=central.reduce(function(s,x){ return s+(x.byteLength); },0);
+    var e=new DataView(new ArrayBuffer(22));
+    e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true);
+    e.setUint32(12,cdSize,true); e.setUint32(16,offset,true);
+    return new Blob(parts.concat(central,[e.buffer]),{type:"application/zip"});
+  }
+  async function readZip(file){
+    var tail=new DataView(await file.slice(Math.max(0,file.size-65557)).arrayBuffer()), p=-1;
+    for(var i=tail.byteLength-22;i>=0;i--){ if(tail.getUint32(i,true)===0x06054b50){ p=i; break; } }
+    if(p<0) throw new Error("不是有效的 zip 文件");
+    var n=tail.getUint16(p+10,true), cdSize=tail.getUint32(p+12,true), cdOff=tail.getUint32(p+16,true);
+    var cd=new DataView(await file.slice(cdOff,cdOff+cdSize).arrayBuffer()), dec=new TextDecoder(), out={}, q=0;
+    for(var k=0;k<n;k++){
+      if(cd.getUint32(q,true)!==0x02014b50) throw new Error("zip 结构损坏");
+      var method=cd.getUint16(q+10,true), csize=cd.getUint32(q+20,true), nl=cd.getUint16(q+28,true), xl=cd.getUint16(q+30,true), cl=cd.getUint16(q+32,true), lo=cd.getUint32(q+42,true);
+      var name=dec.decode(new Uint8Array(cd.buffer,cd.byteOffset+q+46,nl));
+      out[name]={method:method,csize:csize,lo:lo};
+      q+=46+nl+xl+cl;
+    }
+    async function get(name,type){
+      var r=out[name]; if(!r) return null;
+      if(r.method!==0) throw new Error("这个 zip 被重新压缩过，请使用 App 导出的原始文件");
+      var lh=new DataView(await file.slice(r.lo,r.lo+30).arrayBuffer());
+      var start=r.lo+30+lh.getUint16(26,true)+lh.getUint16(28,true);
+      return file.slice(start,start+r.csize,type||"");
+    }
+    return {names:Object.keys(out), get:get};
+  }
+  function extOf(m){
+    var map={"image/jpeg":"jpg","image/png":"png","image/heic":"heic","image/heif":"heif","image/gif":"gif","image/webp":"webp",
+      "video/mp4":"mp4","video/quicktime":"mov","video/webm":"webm","audio/mp4":"m4a","audio/x-m4a":"m4a","audio/aac":"aac","audio/webm":"webm","audio/mpeg":"mp3","audio/wav":"wav"};
+    return map[(m||"").split(";")[0]] || "bin";
+  }
+
+  // 导出的浏览页面（在 Mac 上用 Safari 打开）
+  function viewerHTML(data,title){
+    var json=JSON.stringify(data).replace(/</g,"\\u"+"003c");
+    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>'+
+      'body{margin:0;background:#f7f3ec;color:#2e2925;font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif}'+
+      '@media (prefers-color-scheme:dark){body{background:#181512;color:#f1ece6}.e{background:#221e1a!important}.m{color:#a39a90!important}}'+
+      '.w{max-width:760px;margin:0 auto;padding:30px 20px 60px}h1{font-size:30px;margin:0 0 4px}.m{color:#958b82;font-size:14px}'+
+      'input{width:100%;box-sizing:border-box;margin:18px 0 6px;padding:10px 12px;border:1px solid #ddd2c4;border-radius:10px;font-size:16px;background:transparent;color:inherit}'+
+      'h2{font-size:15px;color:#958b82;margin:30px 4px 10px}.e{background:#fffdf9;border-radius:16px;padding:20px 22px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}'+
+      '.d{font-weight:700;font-size:17px}.t{white-space:pre-wrap;line-height:1.75;font-size:16px;margin:12px 0}a{color:#b0603a;text-decoration:none}'+
+      '.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}.g img{width:100%;height:200px;object-fit:cover;border-radius:10px;cursor:zoom-in}'+
+      'video{width:100%;border-radius:12px;margin-top:8px;background:#000}audio{width:100%;margin-top:8px}'+
+      '#z{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;cursor:zoom-out}#z img{max-width:95%;max-height:95%}'+
+      '</style></head><body><div class="w"><h1>'+esc(title)+'</h1><div class="m" id="c"></div><input id="q" type="search" placeholder="搜索"><div id="l"></div></div><div id="z"><img></div>'+
+      '<script id="data" type="application/json">'+json+'<\/script><script>'+
+      'var D=JSON.parse(document.getElementById("data").textContent),W="日一二三四五六";'+
+      'function e(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c]})}'+
+      'function p(n){return(n<10?"0":"")+n}'+
+      'function r(){var q=document.getElementById("q").value.trim().toLowerCase(),h="",lm="";'+
+      'D.entries.filter(function(x){return!q||((x.text||"")+" "+(x.loc&&x.loc.name||"")).toLowerCase().indexOf(q)>=0}).forEach(function(x){'+
+      'var d=new Date(x.date),m=d.getFullYear()+"年"+(d.getMonth()+1)+"月";if(m!==lm){lm=m;h+="<h2>"+m+"</h2>"}'+
+      'var ph="",ot="";(x.media||[]).forEach(function(f){if(f.type==="photo")ph+="<img loading=lazy src=\\""+e(f.file)+"\\">";'+
+      'else if(f.type==="video")ot+="<video controls preload=metadata src=\\""+e(f.file)+"\\"></video>";else ot+="<audio controls preload=metadata src=\\""+e(f.file)+"\\"></audio>"});'+
+      'var lc=x.loc&&x.loc.name?(x.loc.lat!=null?"<a target=_blank href=\\"https://maps.apple.com/?ll="+x.loc.lat+","+x.loc.lng+"&q="+encodeURIComponent(x.loc.name)+"\\">📍 "+e(x.loc.name)+"</a>":"📍 "+e(x.loc.name)):"";'+
+      'h+="<div class=e><div class=d>"+d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 周"+W[d.getDay()]+" "+p(d.getHours())+":"+p(d.getMinutes())+"</div>"+(lc?"<div class=m>"+lc+"</div>":"")+'+
+      '(x.text?"<div class=t>"+e(x.text)+"</div>":"")+(ph?"<div class=g>"+ph+"</div>":"")+ot+"</div>"});'+
+      'document.getElementById("l").innerHTML=h||"<p class=m>没有找到</p>"}'+
+      'document.getElementById("c").textContent="共 "+D.entries.length+" 篇 · 导出于 "+new Date(D.exported).toLocaleString("zh-CN");'+
+      'document.getElementById("q").oninput=r;r();'+
+      'document.addEventListener("click",function(v){var z=document.getElementById("z");if(v.target.tagName==="IMG"&&v.target.parentNode.className==="g"){z.firstChild.src=v.target.src;z.style.display="flex"}else if(v.target.closest("#z"))z.style.display="none"});'+
+      '<\/script></body></html>';
+  }
+
+  function fillRanges(){
+    var ms={};
+    entriesCache.forEach(function(e){ var d=new Date(e.date); ms[d.getFullYear()+"-"+pad2(d.getMonth()+1)]=1; });
+    var keys=Object.keys(ms).sort().reverse(), ys={};
+    keys.forEach(function(k){ ys[k.slice(0,4)]=1; });
+    $("expRange").innerHTML='<option value="all">全部日记（'+entriesCache.length+' 篇）</option>'+
+      Object.keys(ys).sort().reverse().map(function(y){ return '<option value="'+y+'">'+y+' 年全部</option>'; }).join("")+
+      keys.map(function(k){ return '<option value="'+k+'">'+k.slice(0,4)+' 年 '+(+k.slice(5))+' 月</option>'; }).join("");
+  }
+  $("expBtn").onclick=async function(){
+    var range=$("expRange").value;
+    var list=(await allEntries()).filter(function(e){ var d=new Date(e.date), ym=d.getFullYear()+"-"+pad2(d.getMonth()+1); return range==="all"||ym===range||String(d.getFullYear())===range; })
+      .sort(function(a,b){ return a.date<b.date?1:-1; });
+    if(!list.length){ toast("这个范围没有日记"); return; }
+    busy(true,"正在打包…");
+    try{
+      var files=[], out=[];
+      for(var i=0;i<list.length;i++){
+        var e=list[i], d=new Date(e.date), base=d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+"-"+pad2(d.getHours())+pad2(d.getMinutes());
+        var media=[];
+        for(var j=0;j<(e.media||[]).length;j++){
+          var m=e.media[j], b=await getBlob(m.id); if(!b) continue;
+          var fn="media/"+base+"-"+(j+1)+"."+extOf(m.mime||b.type);
+          files.push({name:fn, blob:b}); media.push({id:m.id,type:m.type,mime:m.mime,file:fn});
+        }
+        out.push({id:e.id,date:e.date,text:e.text,loc:e.loc,media:media});
+      }
+      var title=cfg.title||"我的日记", data={app:"riji",version:1,exported:new Date().toISOString(),entries:out};
+      files.unshift({name:"日记.html", blob:new Blob([viewerHTML(data,title)],{type:"text/html"})});
+      files.push({name:"data.json", blob:new Blob([JSON.stringify(data)],{type:"application/json"})});
+      var zip=await makeZip(files,function(i,n){ $("busyText").textContent="正在打包… "+Math.round(i/n*100)+"%"; });
+      var now=new Date(), fname="日记导出-"+(range==="all"?"全部":range)+"-"+now.getFullYear()+pad2(now.getMonth()+1)+pad2(now.getDate())+".zip";
+      busy(false);
+      var file=new File([zip],fname,{type:"application/zip"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file],title:fname}); }catch(err){}
+      }else{
+        var a=document.createElement("a"); a.href=URL.createObjectURL(zip); a.download=fname; document.body.appendChild(a); a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },3000);
+      }
+      toast("已打包 "+list.length+" 篇，"+fmtSize(zip.size));
+    }catch(err){ busy(false); toast("导出失败，请重试"); }
+  };
+
+  $("impBtn").onclick=function(){ $("impFile").click(); };
+  $("impFile").onchange=async function(){
+    var f=this.files[0]; this.value=""; if(!f) return;
+    busy(true,"正在导入…");
+    try{
+      var z=await readZip(f), jb=await z.get("data.json");
+      if(!jb) throw new Error("zip 里没有找到日记数据");
+      var data=JSON.parse(await jb.text());
+      if(!data || !Array.isArray(data.entries)) throw new Error("日记数据格式不对");
+      var have={}; (await allEntries()).forEach(function(e){ have[e.id]=1; });
+      var added=0;
+      for(var i=0;i<data.entries.length;i++){
+        var e=data.entries[i]; if(!e || !e.id || have[e.id] || !e.date) continue;
+        $("busyText").textContent="正在导入… "+(i+1)+"/"+data.entries.length;
+        var media=[], puts=[];
+        for(var j=0;j<(e.media||[]).length;j++){
+          var m=e.media[j], b=await z.get(m.file, m.mime); if(!b) continue;
+          b=new Blob([b],{type:m.mime||""});
+          var th=null;
+          if(m.type==="photo"){ try{ var r=await loadImg(b); th=await drawTo(r.im,r.im.naturalWidth,r.im.naturalHeight,480,0.75); URL.revokeObjectURL(r.url); }catch(x){} }
+          else if(m.type==="video"){ th=await videoThumb(b); }
+          puts.push({id:m.id,blob:b}); if(th) puts.push({id:m.id+"_t",blob:th});
+          media.push({id:m.id,type:m.type,mime:m.mime,hasThumb:!!th});
+        }
+        var t=DB.transaction(["entries","blobs"],"readwrite");
+        puts.forEach(function(p){ t.objectStore("blobs").put(p); });
+        t.objectStore("entries").put({id:e.id,date:e.date,text:e.text||"",loc:e.loc||null,media:media,updated:new Date().toISOString()});
+        await done(t); added++;
+      }
+      busy(false); toast("导入完成，新增 "+added+" 篇");
+      await renderHome(); renderSet();
+    }catch(err){ busy(false); toast(err && err.message ? err.message : "导入失败"); }
+  };
+
+  // ---------- 设置 ----------
+  async function renderSet(){
+    $("sTitle").value=cfg.title||"我的日记";
+    fillRanges();
+    var on=!!cfg.pin;
+    $("pinState").textContent = on ? "密码锁已开启。每次打开日记都需要输入密码。" : "开启后，每次打开日记都需要输入密码，防止别人翻看。";
+    $("pinSetBox").hidden=on; $("pinOff").hidden=!on;
+    if(navigator.storage && navigator.storage.estimate){
+      try{ var s=await navigator.storage.estimate(); $("usage").textContent="已使用 "+fmtSize(s.usage||0)+(s.quota?"，可用上限约 "+fmtSize(s.quota):""); }catch(e){}
+    }
+  }
+  $("toSet").onclick=function(){ show("set"); renderSet(); };
+  $("sBack").onclick=function(){ show("home"); renderHome(); };
+  $("sTitle").addEventListener("input",function(){ cfg.title=this.value.trim(); saveCfg(); });
+  async function sha(s){ var b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("riji:"+s)); return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0");}).join(""); }
+  $("pinSave").onclick=async function(){
+    var p=$("pin1").value.trim();
+    if(!/^\d{4,6}$/.test(p)){ toast("请输入 4–6 位数字"); return; }
+    cfg.pin=await sha(p); cfg.pinLen=p.length; cfg.hint=$("pinHint").value.trim(); saveCfg();
+    $("pin1").value=""; $("pinHint").value=""; toast("密码锁已开启，请记好密码"); renderSet();
+  };
+  $("pinOff").onclick=function(){ delete cfg.pin; delete cfg.hint; delete cfg.pinLen; saveCfg(); toast("密码锁已关闭"); renderSet(); };
+
+  // ---------- 密码锁 ----------
+  var typed="";
+  function drawDots(){ var n=cfg.pinLen||4, h=""; for(var i=0;i<n;i++) h+='<i class="'+(i<typed.length?"on":"")+'"></i>'; $("dots").innerHTML=h; }
+  (function(){ var keys=["1","2","3","4","5","6","7","8","9","","0","⌫"];
+    $("pad").innerHTML=keys.map(function(k){ return k?'<button data-k="'+k+'">'+k+'</button>':'<span></span>'; }).join(""); })();
+  $("pad").addEventListener("click",async function(ev){
+    var b=ev.target.closest("button"); if(!b) return; var k=b.getAttribute("data-k");
+    if(k==="⌫"){ typed=typed.slice(0,-1); drawDots(); return; }
+    if(typed.length>=6) return;
+    typed+=k; drawDots();
+    if(typed.length===(cfg.pinLen||4)){
+      if(await sha(typed)===cfg.pin){ typed=""; $("v-lock").hidden=true; }
+      else{ typed=""; setTimeout(drawDots,150); toast("密码不对"); }
+    }
+  });
+  $("forgot").onclick=function(){ $("hintShow").textContent = cfg.hint ? "提示："+cfg.hint : "没有设置密码提示"; };
+  function lock(){ if(cfg.pin){ typed=""; drawDots(); $("hintShow").textContent=""; $("v-lock").hidden=false; } }
+  var hiddenAt=0;
+  document.addEventListener("visibilitychange",function(){
+    if(document.hidden){ hiddenAt=Date.now(); }
+    else if(hiddenAt && Date.now()-hiddenAt>3*60*1000){ lock(); }
+  });
+
+  // ---------- 启动 ----------
+  $("fab").onclick=function(){ openEditor(null); };
+  lock();
+  openDB().then(function(d){ DB=d; renderHome(); }).catch(function(){ $("list").innerHTML='<div class="empty">无法打开日记存储，请用 Safari 并从桌面图标打开</div>'; });
+  if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(function(){}); }
+  if("serviceWorker" in navigator && location.protocol==="https:"){ navigator.serviceWorker.register("sw.js").catch(function(){}); }
+})();
+</script>
+</body>
+</html>
