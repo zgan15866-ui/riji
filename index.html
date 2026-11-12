@@ -122,6 +122,7 @@
     </div>
     <div class="count" id="count"></div>
     <div class="card warn" id="spaceWarn" hidden><span id="spaceText"></span><button class="btn" id="spaceGo">去导出并清理</button></div>
+    <div class="card warn" id="bkWarn" hidden><span id="bkText"></span><div style="display:flex;gap:8px"><button class="btn" id="bkGo">去导出</button><button class="btn" id="bkLater">过几天再说</button></div></div>
     <input class="search" id="q" type="search" placeholder="搜索日记内容或地点">
     <div id="list"></div>
   </section>
@@ -351,8 +352,20 @@
       var id=el.getAttribute("data-thumb"); if(!id) return;
       blobURL(id).then(function(u){ if(u) el.style.backgroundImage='url("'+u+'")'; });
     });
-    checkSpace();
+    checkSpace(); checkBackup();
   }
+  // 超过 30 天没导出，打开时提醒
+  function checkBackup(){
+    var DAY=86400000, now=Date.now();
+    if(!entriesCache.length){ $("bkWarn").hidden=true; return; }
+    var since = cfg.lastExport || entriesCache.reduce(function(m,e){ var t=Date.parse(e.updated||e.date)||now; return Math.min(m,t); }, now);
+    var days=Math.floor((now-since)/DAY);
+    var show = days>=30 && !(cfg.bkSnooze && now<cfg.bkSnooze);
+    $("bkWarn").hidden=!show;
+    if(show) $("bkText").textContent = cfg.lastExport ? "📦 已经 "+days+" 天没有导出日记了，导出一份存到电脑上吧。" : "📦 写日记满一个月啦，记得导出一份存到电脑，换手机或误删时能找回。";
+  }
+  $("bkGo").onclick=function(){ show("set"); renderSet(); };
+  $("bkLater").onclick=function(){ cfg.bkSnooze=Date.now()+3*86400000; saveCfg(); checkBackup(); };
   // 占用空间较大时提醒（视频为主）
   function checkSpace(){
     if(!navigator.storage || !navigator.storage.estimate) return;
@@ -723,6 +736,7 @@
       }
       if(!ok){ toast("已取消导出"); return; }
       toast("已打包 "+list.length+" 篇，"+fmtSize(zip.size));
+      cfg.lastExport=Date.now(); delete cfg.bkSnooze; saveCfg();
       await markExported(exp);
     }catch(err){ busy(false); toast("导出失败，请重试"); }
   };
@@ -793,7 +807,7 @@
     $("pinState").textContent = on ? "密码锁已开启。每次打开日记都需要输入密码。" : "开启后，每次打开日记都需要输入密码，防止别人翻看。";
     $("pinSetBox").hidden=on; $("pinOff").hidden=!on;
     if(navigator.storage && navigator.storage.estimate){
-      try{ var s=await navigator.storage.estimate(); $("usage").textContent="已使用 "+fmtSize(s.usage||0)+(s.quota?"，可用上限约 "+fmtSize(s.quota):""); }catch(e){}
+      try{ var s=await navigator.storage.estimate(); $("usage").textContent="已使用 "+fmtSize(s.usage||0)+(s.quota?"，可用上限约 "+fmtSize(s.quota):"")+(cfg.lastExport?"。上次导出："+new Date(cfg.lastExport).toLocaleDateString("zh-CN"):"。还没有导出过"); }catch(e){}
     }
   }
   $("toSet").onclick=function(){ show("set"); renderSet(); };
